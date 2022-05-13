@@ -31,7 +31,7 @@ jobs:
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": "><https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME|$GITHUB_REF_NAME> — <https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n> \n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${{ inputs.message }}>*"
+                      "text": "><https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME|$GITHUB_REF_NAME> — <https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${{ inputs.message }}>*"
                   },
                   "accessory": {
                       "type": "button",
