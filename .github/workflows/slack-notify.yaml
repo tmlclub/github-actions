@@ -1,0 +1,70 @@
+name: Submit a slack notification
+on:
+  workflow_call:
+    inputs:
+      title:
+        required: true
+        type: string
+      message:
+        required: true
+        type: string
+    secrets:
+      webhook_url:
+        required: true
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build message
+        run: |
+          cat << PAYLOAD > payload.json
+          {
+            "blocks": [
+              {
+                  "type": "section",
+                  "text": {
+                      "type": "mrkdwn",
+                      "text": "\n*${{ inputs.title }}*"
+                  }
+              },
+              {
+                  "type": "section",
+                  "text": {
+                      "type": "mrkdwn",
+                      "text": "><https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${{ inputs.message }}>*"
+                  },
+                  "accessory": {
+                      "type": "button",
+                      "url": "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID",
+                      "text": {
+                          "type": "plain_text",
+                          "text": "View progress"
+                      }
+                  }
+              },
+              {
+                  "type": "divider"
+              },
+              {
+                  "type": "context",
+                  "elements": [
+                      {
+                          "type": "mrkdwn",
+                          "text": "Triggered by: <https://github.com/$GITHUB_ACTOR|@$GITHUB_ACTOR>"
+                      },
+                      {
+                          "type": "mrkdwn",
+                          "text": "$GITHUB_REF_NAME@<https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA|${GITHUB_SHA:0:8}>"
+                      }
+                  ]
+              }
+            ]
+          }
+          PAYLOAD
+      - name: Send message to slack
+        uses: slackapi/slack-github-action@v1.18.0
+        with:
+          payload-file-path: ./payload.json
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.webhook_url }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
