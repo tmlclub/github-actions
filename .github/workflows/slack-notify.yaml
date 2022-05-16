@@ -19,11 +19,11 @@ jobs:
         run: |
           # Escape the message and title to be able to embed it in JSON
           cat << TITLE > title.txt
-          ${inputs.title}}
+          ${{ inputs.title }}
           TITLE
 
           cat << MESSAGE > message.txt
-          ${inputs.message}}
+          ${{ inputs.message }}
           MESSAGE
 
           TITLE=$(cat title.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
