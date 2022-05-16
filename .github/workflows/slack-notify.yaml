@@ -17,21 +17,28 @@ jobs:
     steps:
       - name: Build message
         run: |
+          # Escape the message and title to be able to embed it in JSON
+          TITLE=$(echo ${{ inputs.title }} | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
+          MESSAGE=$(echo ${{ inputs.message }} | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
+
+          echo "Sending message with title $TITLE and message $MESSAGE"
+
           cat << PAYLOAD > payload.json
           {
+            "text": "${TITLE} - ${MESSAGE}",
             "blocks": [
               {
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": "\n*${{ inputs.title }}*"
+                      "text": "\n*${TITLE}*"
                   }
               },
               {
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": "><https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME|$GITHUB_REF_NAME> — <https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${{ inputs.message }}>*"
+                      "text": "><https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME|$GITHUB_REF_NAME> — <https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${MESSAGE}>*"
                   },
                   "accessory": {
                       "type": "button",
@@ -61,6 +68,9 @@ jobs:
             ]
           }
           PAYLOAD
+
+          echo "Submitting message with payload:"
+          cat payload.json
       - name: Send message to slack
         uses: slackapi/slack-github-action@v1.18.0
         with:
