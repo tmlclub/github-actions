@@ -18,8 +18,16 @@ jobs:
       - name: Build message
         run: |
           # Escape the message and title to be able to embed it in JSON
-          TITLE=$(echo ${{ inputs.title }} | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
-          MESSAGE=$(echo ${{ inputs.message }} | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
+          cat << TITLE > title.txt
+          ${inputs.title}}
+          TITLE
+
+          cat << MESSAGE > message.txt
+          ${inputs.message}}
+          MESSAGE
+
+          TITLE=$(cat title.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
+          MESSAGE=$(cat message.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\"\#]\)/\\\1/g')
 
           echo "Sending message with title $TITLE and message $MESSAGE"
 
