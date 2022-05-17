@@ -27,7 +27,7 @@ jobs:
           MESSAGE
 
           TITLE=$(cat title.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\#]\)/\\\\\1/g' | sed 's/\"/\\\"/g')
-          MESSAGE=$(cat message.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\#]\)/\\\\\1/g' | sed 's/\"/\\\"/g'
+          MESSAGE=$(cat message.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\#]\)/\\\\\1/g' | sed 's/\"/\\\"/g')
 
           echo "Sending message with title $TITLE and message $MESSAGE"
 
