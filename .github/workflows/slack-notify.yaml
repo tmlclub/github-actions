@@ -18,35 +18,34 @@ jobs:
       - name: Build message
         run: |
           # Escape the message and title to be able to embed it in JSON
-          cat << TITLE > title.txt
+          cat << NOTIFICATION | head -c -1 | jq -R -s '.' > notification.txt
           ${{ inputs.title }}
+          NOTIFICATION
+
+          cat << TITLE | head -c -1 | jq -R -s '.' > title.txt
+          \n*${{ inputs.title }}*
           TITLE
 
-          cat << MESSAGE > message.txt
-          ${{ inputs.message }}
+          cat << MESSAGE | head -c -1 | jq -R -s '.' > message.txt
+          ><https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME|$GITHUB_REF_NAME> — <https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${{ inputs.message }}>*
           MESSAGE
-
-          TITLE=$(cat title.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\#]\)/\\\\\1/g' | sed 's/\"/\\\"/g')
-          MESSAGE=$(cat message.txt | tr '\n' ' ' | sed 's/\([|<>\\*\_\#]\)/\\\\\1/g' | sed 's/\"/\\\"/g')
-
-          echo "Sending message with title $TITLE and message $MESSAGE"
 
           cat << PAYLOAD > payload.json
           {
-            "text": "${TITLE} - ${MESSAGE}",
+            "text": $(cat notification.txt),
             "blocks": [
               {
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": "\n*${TITLE}*"
+                      "text": $(cat title.txt)
                   }
               },
               {
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": "><https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME|$GITHUB_REF_NAME> — <https://github.com/$GITHUB_REPOSITORY|$GITHUB_REPOSITORY>\n>*<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|${MESSAGE}>*"
+                      "text": $(cat message.txt)
                   },
                   "accessory": {
                       "type": "button",
