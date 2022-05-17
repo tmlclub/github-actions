@@ -23,7 +23,8 @@ jobs:
           NOTIFICATION
 
           cat << TITLE | head -c -1 | jq -R -s '.' > title.txt
-          \n*${{ inputs.title }}*
+
+          *${{ inputs.title }}*
           TITLE
 
           cat << MESSAGE | head -c -1 | jq -R -s '.' > message.txt
