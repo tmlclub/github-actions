@@ -23,6 +23,7 @@ on:
 jobs:
   notify:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Build message
         run: |
