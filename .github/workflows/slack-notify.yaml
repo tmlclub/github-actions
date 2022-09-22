@@ -31,36 +31,37 @@ jobs:
           BRANCH=${REF##*/}
 
           # Escape the message and title to be able to embed it in JSON
-          cat << NOTIFICATION | head -c -1 | jq -R -s '.' > notification.txt
+          cat << NOTIFICATION | head -c -1 > notification.txt
           ${{ inputs.title }}
           NOTIFICATION
 
-          cat << TITLE | head -c -1 | jq -R -s '.' > title.txt
+          cat << TITLE | head -c -1 > title.txt
 
           *${{ inputs.title }}*
           TITLE
 
-          cat << MESSAGE | head -c -1 | jq -R -s '.' > message.txt
-          ><https://github.com/${{ inputs.repository }}/tree/$BRANCH|$BRANCH> — <https://github.com/${{ inputs.repository }}|${{ inputs.repository }}>
-          >*<https://github.com/${{ inputs.repository }}/actions/runs/$GITHUB_RUN_ID|${{ inputs.message }}>*
-          MESSAGE
+          # Format the message body
+          echo "><https://github.com/${{ inputs.repository }}/tree/$BRANCH|$BRANCH> — <https://github.com/${{ inputs.repository }}|${{ inputs.repository }}>" >> message.txt
+          echo "${{ inputs.message }}" | while read LINE; do
+            echo ">*<https://github.com/${{ inputs.repository }}/actions/runs/$GITHUB_RUN_ID|$LINE>*" >> message.txt
+          done
 
           cat << PAYLOAD > payload.json
           {
-            "text": $(cat notification.txt),
+            "text": $(cat notification.txt | jq -R -s '.'),
             "blocks": [
               {
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": $(cat title.txt)
+                      "text": $(cat title.txt | jq -R -s '.')
                   }
               },
               {
                   "type": "section",
                   "text": {
                       "type": "mrkdwn",
-                      "text": $(cat message.txt)
+                      "text": $(cat message.txt | jq -R -s '.')
                   },
                   "accessory": {
                       "type": "button",
