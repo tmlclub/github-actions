@@ -1,0 +1,84 @@
+name: Submit a slack notification
+on:
+  workflow_call:
+    inputs:
+      title:
+        required: true
+        type: string
+      message:
+        required: true
+        type: string
+      repository:
+        required: true
+        type: string
+      button:
+        required: false
+        type: string
+    secrets:
+      webhook_url:
+        required: true
+jobs:
+  notify:
+    name: Send slack notification
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Build message
+        run: |
+          BUTTON="${{ inputs.button }}"
+
+          # Escape the message and title to be able to embed it in JSON
+          cat << NOTIFICATION | head -c -1 > notification.txt
+          ${{ inputs.title }}
+          NOTIFICATION
+
+          cat << TITLE | head -c -1 > title.txt
+
+          *${{ inputs.title }}*
+          TITLE
+
+          # Format the message body
+          echo "><https://github.com/${{ inputs.repository }}|${{ inputs.repository }}>" >> message.txt
+          echo "${{ inputs.message }}" | while read LINE; do
+            echo ">*<https://github.com/${{ inputs.repository }}/actions/runs/$GITHUB_RUN_ID|$LINE>*" >> message.txt
+          done
+
+          cat << PAYLOAD > payload.json
+          {
+            "text": $(cat notification.txt | jq -R -s '.'),
+            "blocks": [
+              {
+                  "type": "section",
+                  "text": {
+                      "type": "mrkdwn",
+                      "text": $(cat title.txt | jq -R -s '.')
+                  }
+              },
+              {
+                  "type": "section",
+                  "text": {
+                      "type": "mrkdwn",
+                      "text": $(cat message.txt | jq -R -s '.')
+                  },
+                  "accessory": {
+                      "type": "button",
+                      "url": "https://github.com/${{ inputs.repository }}/actions/runs/$GITHUB_RUN_ID",
+                      "text": {
+                          "type": "plain_text",
+                          "text": "$([[ -z $BUTTON ]] && echo "View progress" || echo $BUTTON)"
+                      }
+                  }
+              }
+            ]
+          }
+          PAYLOAD
+
+          echo "Submitting message with payload:"
+          cat payload.json
+      - name: Send message to slack
+        uses: slackapi/slack-github-action@v1.18.0
+        with:
+          payload-file-path: ./payload.json
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.webhook_url }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
