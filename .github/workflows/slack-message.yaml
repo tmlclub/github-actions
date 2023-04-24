@@ -76,7 +76,7 @@ jobs:
           echo "Submitting message with payload:"
           cat payload.json
       - name: Send message to slack
-        uses: slackapi/slack-github-action@v1.18.0
+        uses: slackapi/slack-github-action@v1.23.0
         with:
           payload-file-path: ./payload.json
         env:
