@@ -17,6 +17,9 @@ on:
       sha:
         required: true
         type: string
+      button:
+        required: false
+        type: string
     secrets:
       webhook_url:
         required: true
@@ -27,79 +30,81 @@ jobs:
     continue-on-error: true
     steps:
       - name: Build message
+        env:
+          # Passed through the environment rather than interpolated into the
+          # script, so quotes, backticks and $(...) in a commit message can
+          # neither break the shell nor inject commands.
+          TITLE: ${{ inputs.title }}
+          MESSAGE: ${{ inputs.message }}
+          REPOSITORY: ${{ inputs.repository }}
+          REF: ${{ inputs.ref }}
+          SHA: ${{ inputs.sha }}
+          BUTTON: ${{ inputs.button }}
         run: |
-          SHA="${{ inputs.sha }}"
-          REF="${{ inputs.ref }}"
-          BRANCH=${REF##*/}
+          set -euo pipefail
 
-          # Escape the message and title to be able to embed it in JSON
-          cat << NOTIFICATION | head -c -1 > notification.txt
-          ${{ inputs.title }}
-          NOTIFICATION
+          # Slack mrkdwn requires exactly these three characters to be escaped.
+          # JSON string escaping is jq's job, so it is not handled here.
+          escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
-          cat << TITLE | head -c -1 > title.txt
+          # refs/heads/feature/x -> feature/x (${REF##*/} would give just "x")
+          BRANCH="${REF#refs/}"
+          BRANCH="${BRANCH#heads/}"
+          BRANCH="${BRANCH#tags/}"
 
-          *${{ inputs.title }}*
-          TITLE
+          REPO_URL="https://github.com/$REPOSITORY"
+          RUN_URL="$REPO_URL/actions/runs/$GITHUB_RUN_ID"
 
-          # Format the message body
-          echo "><https://github.com/${{ inputs.repository }}/tree/$BRANCH|$BRANCH> — <https://github.com/${{ inputs.repository }}|${{ inputs.repository }}>" >> message.txt
-          echo "${{ inputs.message }}" | while read LINE; do
-            echo ">*<https://github.com/${{ inputs.repository }}/actions/runs/$GITHUB_RUN_ID|$LINE>*" >> message.txt
-          done
+          # Quote the message instead of turning each line into a link label:
+          # link labels cannot contain <, > or |, which is what broke commit
+          # messages before. The run is linked from the button and the context.
+          if [ -n "${MESSAGE//[[:space:]]/}" ]; then
+            BODY=$(printf '%s\n' "$MESSAGE" | escape | sed 's/^/>/')
+          else
+            BODY=""
+          fi
 
-          cat << PAYLOAD > payload.json
-          {
-            "text": $(cat notification.txt | jq -R -s '.'),
-            "blocks": [
-              {
-                  "type": "section",
-                  "text": {
-                      "type": "mrkdwn",
-                      "text": $(cat title.txt | jq -R -s '.')
+          CONTEXT="<$REPO_URL|$(printf '%s' "$REPOSITORY" | escape)>"
+          CONTEXT="$CONTEXT  •  <$REPO_URL/tree/$BRANCH|$(printf '%s' "$BRANCH" | escape)>"
+          CONTEXT="$CONTEXT  •  <$REPO_URL/commit/$SHA|\`${SHA:0:8}\`>"
+          CONTEXT="$CONTEXT  •  <https://github.com/$GITHUB_ACTOR|@$GITHUB_ACTOR>"
+
+          jq -n \
+            --arg fallback "$TITLE" \
+            --arg title "*$(printf '%s' "$TITLE" | escape)*" \
+            --arg body "$BODY" \
+            --arg context "$CONTEXT" \
+            --arg run_url "$RUN_URL" \
+            --arg button "${BUTTON:-View progress}" \
+            '{
+              text: $fallback,
+              blocks: (
+                [
+                  {
+                    type: "section",
+                    text: { type: "mrkdwn", text: $title },
+                    accessory: {
+                      type: "button",
+                      url: $run_url,
+                      text: { type: "plain_text", text: $button }
+                    }
                   }
-              },
-              {
-                  "type": "section",
-                  "text": {
-                      "type": "mrkdwn",
-                      "text": $(cat message.txt | jq -R -s '.')
-                  },
-                  "accessory": {
-                      "type": "button",
-                      "url": "https://github.com/${{ inputs.repository }}/actions/runs/$GITHUB_RUN_ID",
-                      "text": {
-                          "type": "plain_text",
-                          "text": "View progress"
-                      }
-                  }
-              },
-              {
-                  "type": "divider"
-              },
-              {
-                  "type": "context",
-                  "elements": [
-                      {
-                          "type": "mrkdwn",
-                          "text": "$BRANCH@<https://github.com/${{ inputs.repository }}/commit/$SHA|${SHA:0:8}>"
-                      },
-                      {
-                          "type": "mrkdwn",
-                          "text": "Triggered by: <https://github.com/$GITHUB_ACTOR|@$GITHUB_ACTOR>"
-                      }
-                  ]
-              }
-            ]
-          }
-          PAYLOAD
+                ]
+                + (if $body == "" then [] else [
+                    { type: "section", text: { type: "mrkdwn", text: $body } }
+                  ] end)
+                + [
+                  { type: "divider" },
+                  { type: "context", elements: [ { type: "mrkdwn", text: $context } ] }
+                ]
+              )
+            }' > payload.json
 
           echo "Submitting message with payload:"
           cat payload.json
       - name: Send message to slack
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@v4.0.0
         with:
+          webhook: ${{ secrets.webhook_url }}
+          webhook-type: incoming-webhook
           payload-file-path: ./payload.json
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.webhook_url }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
